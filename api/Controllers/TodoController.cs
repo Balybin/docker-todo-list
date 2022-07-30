@@ -1,7 +1,7 @@
-﻿using DockerTodoList.Infrastructure.Database;
+﻿using docker_todo_list.Features.Todos;
+using DockerTodoList.Infrastructure.Database;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using System.Linq;
 
 namespace docker_todo_list.Controllers
 {
@@ -17,48 +17,28 @@ namespace docker_todo_list.Controllers
     public class TodoController : ControllerBase
     {
         private readonly DatabaseContext _dbContext;
+        private readonly IMediator _mediator;
 
-        public TodoController(DatabaseContext dbContext)
+        public TodoController(DatabaseContext dbContext, IMediator mediator)
         {
             _dbContext = dbContext;
+            _mediator = mediator;
         }
         [HttpGet]
-        public async Task<IReadOnlyCollection<TodoListViewModel>> GetTodoListItems(Guid userId, CancellationToken token)
+        public async Task<IReadOnlyCollection<GetTodoResponse>> GetTodoListItems([FromQuery] GetTodoQuery query, CancellationToken token)
         {
-            var user = await _dbContext.Users.SingleAsync(user => user.Id == userId, token);
-            return await _dbContext.Entry(user).Collection(user => user.TodoListItems).Query()
-                .Select(todoListItem => new TodoListViewModel
-                {
-                    Content = todoListItem.Content,
-                    Title = todoListItem.Title,
-                    Id = todoListItem.Id
-                }).ToListAsync(token);
+            return await _mediator.Send(query, token);
         }
 
         [HttpPost]
-        public async Task<Guid> CreateTodoListItem(Guid userId, string title, string? content, CancellationToken token)
+        public async Task<Guid> CreateTodoListItem([FromBody] CreateTodoCommand command, CancellationToken token)
         {
-            var user = await _dbContext.Users.SingleAsync(user => user.Id == userId, token);
-
-            var todoListItem = user.AddTodoListItem(title);
-            todoListItem.setContent(content ?? string.Empty);
-
-            await _dbContext.SaveChangesAsync(token);
-
-            return todoListItem.Id;
+            return await _mediator.Send(command, token);
         }
         [HttpDelete]
-        public async Task RemoveTodoListItem(Guid userId, Guid todoListItemId, CancellationToken token)
+        public async Task RemoveTodoListItem([FromBody] RemoveTodoCommand command, CancellationToken token)
         {
-            var user = await _dbContext.Users.SingleAsync(user => user.Id == userId, token);
-
-            var todoListItem = await _dbContext.Entry(user).Collection(user => user.TodoListItems).Query()
-                .SingleAsync(todoListItem => todoListItem.Id == todoListItemId, token);
-
-            user.RemoveTodoListItem(todoListItem);
-
-            await _dbContext.SaveChangesAsync(token);
-
+            await _mediator.Send(command, token);
             return;
         }
     }

@@ -17,7 +17,7 @@
         }
         public TodoListItem AddTodoListItem(string title)
         {
-            var todoListItem = new TodoListItem(title);
+            var todoListItem = new TodoListItem(this, title);
             _todoListItems.Add(todoListItem);
             return todoListItem;
         }

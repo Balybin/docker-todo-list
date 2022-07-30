@@ -1,5 +1,9 @@
+using MediatR;
 using DockerTodoList.Infrastructure.Database;
 using Microsoft.EntityFrameworkCore;
+using System.Reflection;
+using docker_todo_list.Pipelines;
+using FluentValidation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,8 +13,17 @@ builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-var connectionString = builder.Configuration.GetConnectionString("Main");
-builder.Services.AddDbContext<DatabaseContext>(options => options.UseNpgsql(connectionString, sqlOptions => sqlOptions.CommandTimeout(300)));
+AssemblyScanner.FindValidatorsInAssembly(Assembly.GetExecutingAssembly()).ForEach(pair =>
+{
+    builder.Services.AddScoped(typeof(IValidator), pair.ValidatorType);
+    builder.Services.AddScoped(pair.InterfaceType, pair.ValidatorType);
+});
+
+builder.Services.AddMediatR(Assembly.GetExecutingAssembly())
+    .AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidatorBehavior<,>));
+
+builder.Services.AddDbContext<DatabaseContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("Main"), sqlOptions => sqlOptions.CommandTimeout(300)));
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

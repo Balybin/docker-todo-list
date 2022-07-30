@@ -1,50 +1,35 @@
-﻿using DockerTodoList.Domain;
+﻿using docker_todo_list.Features.Users;
+using DockerTodoList.Domain;
 using DockerTodoList.Infrastructure.Database;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace docker_todo_list.Controllers
 {
-    public class UserViewModel
-    {
-        public Guid Id { get; set; }
-        public string Name { get; set; }
-        public int TodoItemsCount { get; set; }
-    }
+   
 
     [ApiController]
     [Route("users")]
     public class UserController : ControllerBase
     {
         private readonly DatabaseContext _dbContext;
-        public UserController(DatabaseContext dbContext)
+        private readonly IMediator _mediator;
+
+        public UserController(DatabaseContext dbContext, IMediator mediator)
         {
             _dbContext = dbContext;
+            _mediator = mediator;
         }
-        [HttpGet()]
-        public async Task<IReadOnlyCollection<UserViewModel>> GetUsers(string? keywords, CancellationToken token)
+        [HttpGet]
+        public async Task<IReadOnlyCollection<GetUsersResponse>> GetUsers([FromQuery] GetUsersQuery query, CancellationToken token)
         {
-            var query = _dbContext.Users.AsQueryable();
-            if (!string.IsNullOrEmpty(keywords))
-            {
-                query = query.Where(user => user.Name.ToLower().Contains(keywords.ToLower()));
-            }
-
-            return await query
-                .Select(user => new UserViewModel
-                {
-                    Id = user.Id,
-                    Name = user.Name,
-                    TodoItemsCount = user.TodoListItems.Count()
-                }).ToListAsync(token);
+            return await _mediator.Send(query, token);
         }
         [HttpPost]
-        public async Task<Guid> CreateUser(string name, CancellationToken token)
+        public async Task<Guid> CreateUser([FromBody] CreateUserCommand command, CancellationToken token)
         {
-            var user = new User(name);
-            _dbContext.Add(user);
-            await _dbContext.SaveChangesAsync(token);
-            return user.Id;
+            return await _mediator.Send(command, token);
         }
     }
 }
